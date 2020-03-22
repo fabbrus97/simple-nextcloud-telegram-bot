@@ -1,6 +1,8 @@
 import json
 import random
+import subprocess
 import sys
+import time
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackQueryHandler, CommandHandler
@@ -44,6 +46,7 @@ def media_sent(update, context):
 
 @restricted
 def save_media(update, context):
+    bot.edit_message_text(text="Saving...", chat_id=update.callback_query.message.chat.id, message_id=update.callback_query.message.message_id)
     try:
         file_id = update.callback_query.message.reply_to_message.photo[-1]["file_id"]
     except:
@@ -53,6 +56,8 @@ def save_media(update, context):
             try:
                 file_id = update.callback_query.message.reply_to_message.document.file_id
             except:
+                bot.edit_message_text(text="Error :-(", chat_id=update.callback_query.message.chat.id,
+                                      message_id=update.callback_query.message.message_id)
                 return
     try:
         print(f"Saving {file_id}")
@@ -62,8 +67,14 @@ def save_media(update, context):
         cmd = f'curl -k -u {user}:{password} -T "{local_path}{name}" "https://{myURL}remote.php/dav/files/{user}/{remote_path}{name}"'
         os.system(cmd)
         os.remove(f"{local_path}{name}")
+        # Notify the user:
+        bot.edit_message_text(text="Saved", chat_id=update.callback_query.message.chat.id,
+                              message_id=update.callback_query.message.message_id)
+
     except Exception as e:
         print(e)
+        bot.edit_message_text(text="Error :-(", chat_id=update.callback_query.message.chat.id,
+                              message_id=update.callback_query.message.message_id)
 
 
 def check_code(update, context):
