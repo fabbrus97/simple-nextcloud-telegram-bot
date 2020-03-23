@@ -8,6 +8,7 @@ python-telegram-bot (https://github.com/python-telegram-bot/python-telegram-bot)
 
 ### Quickstart
 -1. Create the folder on your owncloud server where you want to receive the files (skip this step if you want to use an existing one)
+
 0. Create the bot with Botfather on telegram
 1. Configure the bot editing the file `config.json`
 2. Launch `python3 main.py`
