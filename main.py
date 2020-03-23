@@ -1,15 +1,12 @@
-import json
-import random
-import subprocess
-import sys
-import time
-
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CallbackQueryHandler, CommandHandler
-import logging
-import os
 from telegram.ext import MessageHandler, Filters
 from functools import wraps
+import logging
+import json
+import random
+import sys
+import os
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -96,8 +93,19 @@ def check_code(update, context):
             # user who successfully performed authentication
             chat_id = update.message.chat.id
             LIST_OF_ADMINS.append((chat_id, update.effective_user.id))
+            save_config()
+
     except Exception as e:
         print(e)
+
+
+def save_config():
+    with open("config.json", "r+") as config:
+        parsed_config = json.loads(config.read())
+        parsed_config["ADMINS"] = LIST_OF_ADMINS
+        config.seek(0)
+        config.write(json.dumps(parsed_config))
+        config.close()
 
 
 def start4groups(update, context):
@@ -107,6 +115,7 @@ def start4groups(update, context):
             admin = admin.user.id
             if (chat_id, admin) not in LIST_OF_ADMINS:
                 LIST_OF_ADMINS.append((chat_id, admin))
+                save_config()
         print(f"New user added, now the list is:\n{LIST_OF_ADMINS}")
     except Exception as e:
         print(e)
@@ -128,6 +137,14 @@ def configure_bot():
             local_path = parsed_file["local_path"]
             global myURL
             myURL = parsed_file["URL"]
+
+            try:
+                global LIST_OF_ADMINS
+                LIST_OF_ADMINS = parsed_file["ADMINS"]
+                global user_authenticated
+                user_authenticated = True
+            except:
+                pass
 
             if local_path[-1] != "/":
                 local_path = local_path + "/"
