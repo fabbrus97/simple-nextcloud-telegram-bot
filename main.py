@@ -129,7 +129,7 @@ def start4groups(update, context):
 
 def configure_bot():
     try:
-        with open("config.json") as file:
+        with open("cpconfig.json") as file:
             parsed_file = json.loads(file.read())
             global TOKEN
             TOKEN = parsed_file["TOKEN"]
