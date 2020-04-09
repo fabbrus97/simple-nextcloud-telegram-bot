@@ -24,7 +24,7 @@ def restricted(func):
         else:
             chat_id = update.callback_query.message.chat.id
         user_id = update.effective_user.id
-        if (chat_id, user_id) not in LIST_OF_ADMINS:
+        if [chat_id, user_id] not in LIST_OF_ADMINS:
             print("Unauthorized access denied for {}.".format(user_id))
             return
         return func(update, context, *args, **kwargs)
@@ -95,7 +95,7 @@ def check_code(update, context):
             post_auth()
             # user who successfully performed authentication
             chat_id = update.message.chat.id
-            LIST_OF_ADMINS.append((chat_id, update.effective_user.id))
+            LIST_OF_ADMINS.append([chat_id, update.effective_user.id])
             save_config()
 
     except Exception as e:
@@ -120,7 +120,7 @@ def start4groups(update, context):
         for admin in bot.get_chat_administrators(chat_id):
             admin = admin.user.id
             if (chat_id, admin) not in LIST_OF_ADMINS:
-                LIST_OF_ADMINS.append((chat_id, admin))
+                LIST_OF_ADMINS.append([chat_id, admin])
                 save_config()
         print(f"New user added, now the list is:\n{LIST_OF_ADMINS}")
     except Exception as e:
