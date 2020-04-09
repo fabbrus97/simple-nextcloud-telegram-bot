@@ -31,7 +31,6 @@ def restricted(func):
     return wrapped
 
 
-@restricted
 def media_sent(update, context):
     try:
         ButtonList = [InlineKeyboardButton("Confirm", callback_data=0)]
@@ -75,22 +74,25 @@ def save_media(update, context):
                               message_id=update.callback_query.message.message_id)
 
 
+def post_auth():
+    global user_authenticated
+    user_authenticated = True
+    media_handler = MessageHandler(Filters.photo | Filters.video | Filters.document, media_sent)
+    dispatcher.add_handler(media_handler)
+    dispatcher.add_handler(CallbackQueryHandler(save_media))
+    dispatcher.add_handler(CommandHandler("start", start4groups))
+
+
 def check_code(update, context):
     try:
         global user_authenticated
         if user_authenticated:
             dispatcher.remove_handler(auth_handler)
-            if update.message.text == "/start":
-                start4groups(update, context)
             return
         code = int(update.message.text)
         if code == auth_number:
             update.message.reply_text("You are authenticated!")
-            user_authenticated = True
-            media_handler = MessageHandler(Filters.photo | Filters.video | Filters.document, media_sent)
-            dispatcher.add_handler(media_handler)
-            dispatcher.add_handler(CallbackQueryHandler(save_media))
-            dispatcher.add_handler(CommandHandler("start", start4groups))
+            post_auth()
             # user who successfully performed authentication
             chat_id = update.message.chat.id
             LIST_OF_ADMINS.append((chat_id, update.effective_user.id))
@@ -110,6 +112,9 @@ def save_config():
 
 
 def start4groups(update, context):
+    if not user_authenticated:
+        print("User not authenticated, cannot start bot in this group")
+        return
     try:
         chat_id = update.message.chat.id
         for admin in bot.get_chat_administrators(chat_id):
@@ -179,11 +184,15 @@ if __name__ == '__main__':
 
         auth_handler = MessageHandler(Filters.text, check_code)
         dispatcher.add_handler(auth_handler)
+        start_handler = CommandHandler("start", start4groups)
+        dispatcher.add_handler(start_handler)
         updater.start_polling()
 
         if not user_authenticated:
             auth_number = random.randint(1000000, 9999999)
             print("Start the bot and send this number: ", auth_number)
+        else:
+            post_auth()
     except Exception as e:
         print(e)
         sys.exit(1)
