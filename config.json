@@ -1,1 +1,1 @@
-{"TOKEN": "PUT-YOUR-TOKEN-HERE", "remote_path": "NAME-OF-FOLDER-ON-NEXTCLOUD-SERVER e.g. telegram-files", "local_path": "LOCAL-FOLDER-ABSOLUTE-PATH e.g. /tmp", "user": "NEXTCLOUD-USERNAME", "password": "NEXTCLOUD-PASSWORD", "URL": "IP-OF-SERVER e.g. 1.2.3.4, myserver.com/nextcloud"}
+{"api_id": YOUR-API-ID, "TOKEN": "BOT TOKEN FROM BOTFATHER", "api_hash": "YOUR API HASH", "remote_path": "remote path on nextclout server", "local_path": "/tmp", "user": "nextcloud user", "password": "nextcloud password", "URL": "nextcloud url"}

@@ -1,199 +1,134 @@
-#!/usr/bin/env python3
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CallbackQueryHandler, CommandHandler
-from telegram.ext import MessageHandler, Filters
-from functools import wraps
-import logging
+import asyncio
+from pyrogram import Client, filters, enums
+import sys
 import json
 import random
-import sys
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.handlers import MessageHandler
 import os
-
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
-def restricted(func):
-    @wraps(func)
-    def wrapped(update, context, *args, **kwargs):
-        if update.message:
-            chat_id = update.message.chat.id
-        else:
-            chat_id = update.callback_query.message.chat.id
-        user_id = update.effective_user.id
-        if [chat_id, user_id] not in LIST_OF_ADMINS:
-            print("Unauthorized access denied for {}.".format(user_id))
-            return
-        return func(update, context, *args, **kwargs)
-    return wrapped
-
-
-def media_sent(update, context):
-    try:
-        ButtonList = [InlineKeyboardButton("Confirm", callback_data=0)]
-        reply_markup = InlineKeyboardMarkup([ButtonList])
-        bot.send_message(chat_id=update.effective_chat.id, text="Save media?",
-                         reply_markup=reply_markup, reply_to_message_id=update.message.message_id)
-    except Exception as e:
-        print(e)
-
-
-@restricted
-def save_media(update, context):
-    bot.edit_message_text(text="Saving...", chat_id=update.callback_query.message.chat.id, message_id=update.callback_query.message.message_id)
-    try:
-        file_id = update.callback_query.message.reply_to_message.photo[-1]["file_id"]
-    except:
-        try:
-            file_id = update.callback_query.message.reply_to_message.video["file_id"]
-        except:
-            try:
-                file_id = update.callback_query.message.reply_to_message.document.file_id
-            except:
-                bot.edit_message_text(text="Error :-(", chat_id=update.callback_query.message.chat.id,
-                                      message_id=update.callback_query.message.message_id)
-                return
-    try:
-        print(f"Saving {file_id}")
-        newFile = bot.get_file(file_id)
-        name = newFile.file_path.split("/")[-1]
-        newFile.download(custom_path=f"{local_path}{name}")
-        cmd = f'curl -k -u {user}:{password} -T "{local_path}{name}" "https://{myURL}remote.php/dav/files/{user}/{remote_path}{name}"'
-        os.system(cmd)
-        os.remove(f"{local_path}{name}")
-        # Notify the user:
-        bot.edit_message_text(text="Saved", chat_id=update.callback_query.message.chat.id,
-                              message_id=update.callback_query.message.message_id)
-
-    except Exception as e:
-        print(e)
-        bot.edit_message_text(text="Error :-(", chat_id=update.callback_query.message.chat.id,
-                              message_id=update.callback_query.message.message_id)
-
-
-def post_auth():
-    global user_authenticated
-    user_authenticated = True
-    media_handler = MessageHandler(Filters.photo | Filters.video | Filters.document, media_sent)
-    dispatcher.add_handler(media_handler)
-    dispatcher.add_handler(CallbackQueryHandler(save_media))
-    dispatcher.add_handler(CommandHandler("start", start4groups))
-
-
-def check_code(update, context):
-    try:
-        global user_authenticated
-        if user_authenticated:
-            dispatcher.remove_handler(auth_handler)
-            return
-        code = int(update.message.text)
-        if code == auth_number:
-            update.message.reply_text("You are authenticated!")
-            post_auth()
-            # user who successfully performed authentication
-            chat_id = update.message.chat.id
-            LIST_OF_ADMINS.append([chat_id, update.effective_user.id])
-            save_config()
-
-    except Exception as e:
-        print(e)
-
-
-def save_config():
-    with open("config.json", "r+") as config:
-        parsed_config = json.loads(config.read())
-        parsed_config["ADMINS"] = LIST_OF_ADMINS
-        config.seek(0)
-        config.write(json.dumps(parsed_config))
-        config.close()
-
-
-def start4groups(update, context):
-    if not user_authenticated:
-        print("User not authenticated, cannot start bot in this group")
-        return
-    try:
-        chat_id = update.message.chat.id
-        for admin in bot.get_chat_administrators(chat_id):
-            admin = admin.user.id
-            if (chat_id, admin) not in LIST_OF_ADMINS:
-                LIST_OF_ADMINS.append([chat_id, admin])
-                save_config()
-        print(f"New user added, now the list is:\n{LIST_OF_ADMINS}")
-    except Exception as e:
-        print(e)
-
+from datetime import datetime
 
 def configure_bot():
     try:
         with open("config.json") as file:
             parsed_file = json.loads(file.read())
-            global TOKEN
-            TOKEN = parsed_file["TOKEN"]
-            global remote_path
-            remote_path = parsed_file["remote_path"]
-            global user
-            user = parsed_file["user"]
-            global password
-            password = parsed_file["password"]
-            global local_path
-            local_path = parsed_file["local_path"]
-            global myURL
-            myURL = parsed_file["URL"]
+            global configs
+            configs = parsed_file
+            
+            configs["user_authenticated"] = (configs.get("ADMINS") != None)
+            if configs["user_authenticated"] == False:
+                configs["ADMINS"] = []
 
-            try:
-                global LIST_OF_ADMINS
-                LIST_OF_ADMINS = parsed_file["ADMINS"]
-                global user_authenticated
-                user_authenticated = True
-            except:
-                pass
-
-            if local_path[-1] != "/":
-                local_path = local_path + "/"
-            if myURL[-1] != "/":
-                myURL = myURL + "/"
-            if remote_path[-1] != "/":
-                remote_path = remote_path + "/"
+            if configs["local_path"][-1] != "/":
+                configs["local_path"] = configs["local_path"] + "/"
+            if configs["URL"][-1] != "/":
+                configs["URL"] = configs["URL"] + "/"
+            if configs["remote_path"][-1] != "/":
+                configs["remote_path"] = configs["remote_path"] + "/"
 
             file.close()
     except Exception as e:
         print(e)
         sys.exit(1)
 
+############# global variables ##############
 
-if __name__ == '__main__':
-    TOKEN = ''
-    myURL = ""
-    remote_path = ""
-    user = ""
-    password = ""
-    local_path = ""
-    LIST_OF_ADMINS = []
-    auth_number = 0
-    user_authenticated = False
-    try:
-        configure_bot()
+auth_number = None
+configs = {}
+configure_bot()
+app = Client("my_bot", api_id=configs["api_id"], api_hash=configs["api_hash"], bot_token=configs["TOKEN"])
 
-        updater = Updater(token=TOKEN, use_context=True)
-        bot = Bot(token=TOKEN)
-        dispatcher = updater.dispatcher
+#############################################
 
-        auth_handler = MessageHandler(Filters.text, check_code)
-        dispatcher.add_handler(auth_handler)
-        start_handler = CommandHandler("start", start4groups)
-        dispatcher.add_handler(start_handler)
-        updater.start_polling()
+@app.on_callback_query()
+async def save_media(client, callback_query):
+    chat_id = callback_query.message.chat.id
+    user_id = callback_query.from_user.id
+    if ([chat_id, user_id]) not in configs["ADMINS"]:
+            print("Unauthorized access denied for {}.".format(user_id))
 
-        if not user_authenticated:
-            auth_number = random.randint(1000000, 9999999)
-            print("Start the bot and send this number: ", auth_number)
-        else:
-            post_auth()
+            return
+    
+    await app.edit_message_text(chat_id, callback_query.message.id, "Saving...")
+
+    try:        
+        name = datetime.isoformat(datetime.now())
+
+        local_path = configs["local_path"]
+        file_name = os.path.join(local_path, name)
+        await callback_query.message.reply_to_message.download(
+            file_name=file_name
+        )
+        user = configs["user"]
+        password = configs["password"]
+        URL = configs["URL"]
+        remote_path = configs["remote_path"]
+        cmd = f'curl -k -u {user}:{password} -T "{os.path.join(local_path, name)}" "https://{URL}remote.php/dav/files/{user}/{remote_path}{name}"'
+        os.system(cmd)
+        os.remove(f"{local_path}{name}")
+        # Notify the user:
+        await app.edit_message_text(chat_id, callback_query.message.id, "Saved")
+
     except Exception as e:
         print(e)
-        sys.exit(1)
+        await app.edit_message_text(chat_id, callback_query.message.id, "Error :-(")
+
+@app.on_message(filters.command(commands="start", prefixes="/"))
+async def startgroup(client, message):
+    if not configs["user_authenticated"]:
+        print("User not authenticated, cannot start bot in this group")
+        return
+    try:
+        chat_id = message.chat.id
+        async for admin in app.get_chat_members(chat_id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
+            admin = admin.user.id
+            if ((chat_id, admin)) not in configs["ADMINS"]:
+                configs["ADMINS"].append((chat_id, admin))
+                save_config()
+        print(f'New user added, now the list is:\n{configs["ADMINS"]}')
+    except Exception as e:
+        print(e)
+
+
+# @app.on_message(filters.chat(["me"]))
+@app.on_message()
+async def handle(client, message: Message):
+    if not configs["user_authenticated"]: 
+        code = ""
+        try: 
+            code = int(message.text)
+        except:
+            pass
+        global auth_number
+        if code == auth_number:
+            await message.reply("You are authenticated!")
+            configs["user_authenticated"] = True
+            chat_id = message.chat.id
+            user_id = message.from_user.id
+            configs["ADMINS"].append([chat_id, user_id])
+            save_config()
+    else:
+        if message.photo or message.video or message.document:
+            ButtonList = [InlineKeyboardButton("Confirm", callback_data="0")]
+            reply_markup = InlineKeyboardMarkup([ButtonList])
+            await message.reply(text="Save media?", quote=True, reply_markup=reply_markup)
+
+
+def save_config():
+    with open("config.json", "r+") as config:
+        parsed_config = json.loads(config.read())
+        parsed_config["ADMINS"] = configs["ADMINS"]
+        config.seek(0)
+        config.write(json.dumps(parsed_config))
+        config.close()
+
+# app.run()
+if __name__ == "__main__":
+    if not configs["user_authenticated"]:
+        auth_number = random.randint(1000000, 9999999)
+        print("Start the bot and send this number: ", auth_number)
+    else:
+        print("Bot started!")
+        # app.add_handler(MessageHandler(startgroup))     
+    app.run()
 
