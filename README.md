@@ -4,7 +4,7 @@ This bot allows users to send media files shared on telegram to a owncloud serve
 It downloads the chosen media on the computer, sends and then deletes it. 
 
 ### Requirements
-pyrogram (https://github.com/python-telegram-bot/python-telegram-bot) and curl must be installed first.
+pyrogram (https://pyrogram.org/) and curl must be installed first.
 
 ### Quickstart
 -1. Create the folder on your owncloud server where you want to receive the files (skip this step if you want to use an existing one)
